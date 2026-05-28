@@ -1,6 +1,9 @@
 #pragma once
 
-#include "imgui.h"
+#pragma warning(disable : 4201 4583 5267 4625)
+#pragma warning(push)
+
+#include <imgui/imgui.h>
 #include <cstdint>
 #include <string>
 #include <map>
@@ -9,6 +12,9 @@
 #include <format>
 #include <iostream>
 
+#define VERIDIAN_FALLBACK_SECTION_NAME "FallbackSection"
+
+// The veridian settings manager
 namespace Veridian
 {
     struct VVec2
@@ -146,7 +152,6 @@ namespace Veridian
 
         ~VValue()
         {
-
         }
 
         VValue()
@@ -278,6 +283,7 @@ namespace Veridian
         }
 
         bool Registered = false;
+        bool Hidden = false;
 
         VSettingType Type = VSettingType::VUnknown;
 
@@ -428,7 +434,7 @@ namespace Veridian
             }
         }
 
-    private:
+        private:
         void SetFromString()
         {
             VValue* NewValue = new VValue();
@@ -486,7 +492,7 @@ namespace Veridian
                 }
                 }
             }
-            catch (std::exception& e)
+            catch (std::exception&)
             {
                 // ...
             }
@@ -500,13 +506,15 @@ namespace Veridian
         VSetCtx(std::filesystem::path Filepath);
         VSetCtx(VSetCtx&) = default;
         VSetCtx(VSetCtx&&) = default;
+        VSetCtx operator=(VSetCtx&) = delete;
+        VSetCtx operator=(VSetCtx&&) = delete;
         ~VSetCtx();
 
         std::map<std::string, std::map<std::string, VSetting>> Settings;
         std::filesystem::path Filepath;
 
         template <typename T>
-        VSetting& Register(std::string Section, std::string Name, std::string FacingName, VSettingType Type, T* Value)
+        VSetting& Register(std::string Section, std::string Name, std::string FacingName, VSettingType Type, T* Value, bool Hidden = false)
         {
             if (this->Settings.contains(Section))
             {
@@ -525,7 +533,9 @@ namespace Veridian
             NewSettingRef.Name = Name;
             NewSettingRef.FacingName = FacingName;
             NewSettingRef.Section = Section;
+            NewSettingRef.Type = Type;
             NewSettingRef.Registered = true;
+            NewSettingRef.Hidden = false;
             NewSettingRef.Value = reinterpret_cast<VValue*>(Value);
 
             return this->Settings[Section][Name];
@@ -553,13 +563,15 @@ namespace Veridian
     void InitContext(std::filesystem::path Filepath);
 
     template <typename T>
-    VSetting& Register(std::string Section, std::string Name, std::string FacingName, VSettingType Type, T* Value)
+    VSetting& Register(std::string Section, std::string Name, std::string FacingName, VSettingType Type, T* Value, bool Hidden = false)
     {
-        return VastVeridian->Register(Section, Name, FacingName, Type, Value);
+        return VastVeridian->Register(Section, Name, FacingName, Type, Value, Hidden);
     }
 
     void RenderSetting(VSetting& Setting);
     void RenderSetting(std::string Section, std::string Name);
     void RenderSection(std::string Section);
-    void RenderAll();
+    void RenderAll(std::string DefaultSectionName);
 }
+
+#pragma warning(pop)
