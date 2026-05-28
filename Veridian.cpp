@@ -1,3 +1,4 @@
+#include "pch.h"
 #include "Veridian.h"
 
 namespace Veridian
@@ -11,6 +12,13 @@ namespace Veridian
 
         if (not std::filesystem::exists(Filepath))
         {
+            auto Filename = Filepath.filename();
+
+            Filepath.remove_filename();
+            std::filesystem::create_directories(Filepath);
+
+            Filepath /= Filename;
+
             std::fstream(Filepath.wstring(), std::ios::in | std::ios::out | std::ios::trunc).close();
         }
 
@@ -22,8 +30,7 @@ namespace Veridian
         }
 
         std::string Line;
-
-        std::string CurrentSector = "FallbackSector";
+        std::string CurrentSector = VERIDIAN_FALLBACK_SECTION_NAME;
 
         while (std::getline(FileStream, Line))
         {
@@ -76,6 +83,8 @@ namespace Veridian
 
     void RenderSetting(VSetting& Setting)
     {
+        if (Setting.Hidden) return;
+
         static std::map<VSettingType, ImGuiDataType> VeridianToImGui =
         {
             {VSettingType::VInt, ImGuiDataType_S64},
@@ -176,46 +185,60 @@ namespace Veridian
 
     void RenderSetting(std::string Section, std::string Name)
     {
-        RenderSetting(VastVeridian->Settings.at(Section).at(Name));
+        if (not VastVeridian->Settings.contains(Section)) return;
+        if (not VastVeridian->Settings[Section].contains(Name)) return;
+
+        RenderSetting(VastVeridian->Settings[Section][Name]);
     }
 
     void RenderSection(std::string Section)
     {
+        if (not VastVeridian->Settings.contains(Section)) return;
+
         for (auto& SetPair : VastVeridian->Settings.at(Section))
         {
             if (SetPair.second.Registered) RenderSetting(SetPair.second);
         }
     }
 
-    void RenderAll()
+    void RenderAll(std::string DefaultSectionName)
     {
+        static std::string ActiveSection = DefaultSectionName;
+
         std::map<std::string, size_t> RegisteredSettingsPerSection = {};
 
         for (auto& SecPair : VastVeridian->Settings)
         {
             for (auto& SetPair : SecPair.second)
             {
-                if (SetPair.second.Registered)
+                if (SetPair.second.Registered and not SetPair.second.Hidden)
                 {
                     RegisteredSettingsPerSection[SecPair.first]++;
                 }
             }
         }
 
-        if (ImGui::BeginTabBar("##VeridianSettingsTabBar"))
+        if (ImGui::BeginChild("##SettingsSidebar", { 150.f, 0.f }, ImGuiChildFlags_Borders | ImGuiChildFlags_ResizeX))
         {
             for (auto& SecPair : VastVeridian->Settings)
             {
                 if (RegisteredSettingsPerSection[SecPair.first] == 0) continue;
 
-                if (ImGui::BeginTabItem(SecPair.first.c_str()))
+                if (ImGui::Selectable(SecPair.first.c_str(), SecPair.first == ActiveSection))
                 {
-                    RenderSection(SecPair.first);
-                    ImGui::EndTabItem();
+                    ActiveSection = SecPair.first;
                 }
             }
 
-            ImGui::EndTabBar();
+            ImGui::EndChild();
         }
+
+        ImGui::SameLine();
+
+        ImGui::BeginGroup();
+
+        RenderSection(ActiveSection);
+
+        ImGui::EndGroup();
     }
 }
