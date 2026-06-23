@@ -11,6 +11,7 @@
 #include <fstream>
 #include <format>
 #include <iostream>
+#include <functional>
 
 #define VERIDIAN_FALLBACK_SECTION_NAME "FallbackSection"
 
@@ -260,6 +261,9 @@ namespace Veridian
         }
     };
 
+    class VSetting;
+    using VSettingExtraRender = std::function<bool(VSetting*)>;
+
     class VSetting
     {
         friend class VSetCtx;
@@ -291,6 +295,7 @@ namespace Veridian
         std::string FacingName;
         std::string Section;
         VValue* Value = nullptr;
+        VSettingExtraRender ExtraRenderFn = nullptr;
 
         template <typename T> T Get()
         {
@@ -514,7 +519,7 @@ namespace Veridian
         std::filesystem::path Filepath;
 
         template <typename T>
-        VSetting& Register(std::string Section, std::string Name, std::string FacingName, VSettingType Type, T* Value, bool Hidden = false)
+        VSetting& Register(std::string Section, std::string Name, std::string FacingName, VSettingType Type, T* Value, bool Hidden = false, VSettingExtraRender ExtraRenderFn = {})
         {
             if (this->Settings.contains(Section))
             {
@@ -524,7 +529,7 @@ namespace Veridian
                     ExistingSetting.Type = Type;
                     ExistingSetting.SetFromString();
 
-                    if (Value and ExistingSetting.Value) *Value = *ExistingSetting.Value;
+                    if (Value and ExistingSetting.Value) *Value = *reinterpret_cast<T*>(ExistingSetting.Value);
                 }
             }
 
@@ -535,7 +540,8 @@ namespace Veridian
             NewSettingRef.Section = Section;
             NewSettingRef.Type = Type;
             NewSettingRef.Registered = true;
-            NewSettingRef.Hidden = false;
+            NewSettingRef.Hidden = Hidden;
+            NewSettingRef.ExtraRenderFn = ExtraRenderFn;
             NewSettingRef.Value = reinterpret_cast<VValue*>(Value);
 
             return this->Settings[Section][Name];
@@ -563,9 +569,9 @@ namespace Veridian
     void InitContext(std::filesystem::path Filepath);
 
     template <typename T>
-    VSetting& Register(std::string Section, std::string Name, std::string FacingName, VSettingType Type, T* Value, bool Hidden = false)
+    VSetting& Register(std::string Section, std::string Name, std::string FacingName, VSettingType Type, T* Value, bool Hidden = false, VSettingExtraRender ExtraRenderFn = {})
     {
-        return VastVeridian->Register(Section, Name, FacingName, Type, Value, Hidden);
+        return VastVeridian->Register(Section, Name, FacingName, Type, Value, Hidden, ExtraRenderFn);
     }
 
     void RenderSetting(VSetting& Setting);
