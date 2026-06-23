@@ -181,6 +181,11 @@ namespace Veridian
 
             ImGui::EndDisabled();
         }
+
+        if (Setting.ExtraRenderFn)
+        {
+            Setting.ExtraRenderFn(&Setting);
+        }
     }
 
     void RenderSetting(std::string Section, std::string Name)
